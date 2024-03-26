@@ -8,10 +8,10 @@ import logging
 import subprocess
 
 from typing import Any, OrderedDict
-from xml.dom import minidom
 
 from requests import Session
 from packaging import version
+import defusedxml.minidom
 
 class Prop(OrderedDict):
     def __init__(self, props: str = ...) -> None:
@@ -108,7 +108,7 @@ def WSAChecker(user, release_type):
     except:
         print("Network Error!")
         return 1
-    doc = minidom.parseString(out.text)
+    doc = defusedxml.minidom.parseString(out.text)
     cookie = doc.getElementsByTagName('EncryptedData')[0].firstChild.nodeValue
     with open("../xml/WUIDRequest.xml", "r") as f:
         cat_id_content = f.read().format(user, cookie, cat_id, release_type)
@@ -122,7 +122,7 @@ def WSAChecker(user, release_type):
     except:
         print("Network Error!")
         return 1
-    doc = minidom.parseString(html.unescape(out.text))
+    doc = defusedxml.minidom.parseString(html.unescape(out.text))
     filenames = {}
     for node in doc.getElementsByTagName('ExtendedUpdateInfo')[0].getElementsByTagName('Updates')[0].getElementsByTagName('Update'):
         node_xml = node.getElementsByTagName('Xml')[0]

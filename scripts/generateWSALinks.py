@@ -26,10 +26,10 @@ import sys
 from pathlib import Path
 from threading import Thread
 from typing import Any, OrderedDict
-from xml.dom import minidom
 
 from requests import Session
 from packaging import version
+import defusedxml.minidom
 
 
 class Prop(OrderedDict):
@@ -78,7 +78,7 @@ out = session.post(
     data=cookie_content,
     headers={'Content-Type': 'application/soap+xml; charset=utf-8'}
 )
-doc = minidom.parseString(out.text)
+doc = defusedxml.minidom.parseString(out.text)
 cookie = doc.getElementsByTagName('EncryptedData')[0].firstChild.nodeValue
 
 with open(Path.cwd().parent / "xml/WUIDRequest.xml", "r") as f:
@@ -90,7 +90,7 @@ out = session.post(
     headers={'Content-Type': 'application/soap+xml; charset=utf-8'}
 )
 
-doc = minidom.parseString(html.unescape(out.text))
+doc = defusedxml.minidom.parseString(html.unescape(out.text))
 
 filenames = {}
 for node in doc.getElementsByTagName('ExtendedUpdateInfo')[0].getElementsByTagName('Updates')[0].getElementsByTagName('Update'):
@@ -134,7 +134,7 @@ def send_req(i, v, out_file_name):
         data=FE3_file_content.format(user, i, v, release_type),
         headers={'Content-Type': 'application/soap+xml; charset=utf-8'}
     )
-    doc = minidom.parseString(out.text)
+    doc = defusedxml.minidom.parseString(out.text)
     for l in doc.getElementsByTagName("FileLocation"):
         url = l.getElementsByTagName("Url")[0].firstChild.nodeValue
         if len(url) != 99:
