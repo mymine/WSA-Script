@@ -54,7 +54,7 @@ git = (
 def MagiskandGappsChecker(type):
     global new_version_found
     # Get current version
-    currentver = requests.get(f"https://raw.githubusercontent.com/YT-Advanced/WSA-Script/update/" + type + ".appversion").text.replace('\n', '')
+    currentver = requests.get(f"https://raw.githubusercontent.com/YT-Advanced/WSA-Script/update/" + type + ".appversion", timeout=60).text.replace('\n', '')
     # Write for pushing later
     file = open('../' + type + '.appversion', 'w')
     file.write(currentver)
@@ -65,10 +65,10 @@ def MagiskandGappsChecker(type):
     latestver = ""
     msg = ""
     if (type == "magisk"):
-        latestver = json.loads(requests.get(f"https://github.com/topjohnwu/magisk-files/raw/master/stable.json").content)['magisk']['version'].replace('\n', '')
+        latestver = json.loads(requests.get(f"https://github.com/topjohnwu/magisk-files/raw/master/stable.json", timeout=60).content)['magisk']['version'].replace('\n', '')
         msg="Update Magisk Version from `v" + currentver + "` to `v" + latestver + "`"
     elif (type == "gapps"):
-        latestver = json.loads(requests.get(f"https://api.github.com/repos/YT-Advanced/MindTheGappsBuilder/releases/latest", headers=reqheaders).content)['name']
+        latestver = json.loads(requests.get(f"https://api.github.com/repos/YT-Advanced/MindTheGappsBuilder/releases/latest", headers=reqheaders, timeout=60).content)['name']
         msg="Update MindTheGapps Version from `v" + currentver + "` to `v" + latestver + "`"
 
     # Check if version is the same or not
@@ -87,7 +87,7 @@ def MagiskandGappsChecker(type):
 
 def WSAChecker(user, release_type):
     global new_version_found
-    currentver = requests.get(f"https://raw.githubusercontent.com/YT-Advanced/WSA-Script/update/" + release_type + ".appversion").text.replace('\n', '')
+    currentver = requests.get(f"https://raw.githubusercontent.com/YT-Advanced/WSA-Script/update/" + release_type + ".appversion", timeout=60).text.replace('\n', '')
 
     # Write for pushing later
     file = open('../' + release_type + '.appversion', 'w')
@@ -174,7 +174,7 @@ def WSAChecker(user, release_type):
 # Get user_code (Thanks to @bubbles-wow because of his repository)
 users = {""}
 try:
-    response = requests.get("https://api.github.com/repos/bubbles-wow/MS-Account-Token/contents/token.cfg")
+    response = requests.get("https://api.github.com/repos/bubbles-wow/MS-Account-Token/contents/token.cfg", timeout=60)
     if response.status_code == 200:
         content = response.json()["content"]
         content = content.encode("utf-8")
