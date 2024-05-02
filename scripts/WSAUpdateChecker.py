@@ -76,7 +76,7 @@ def MagiskandGappsChecker(type):
         print("New version found: " + latestver)
         new_version_found = True
         # Write appversion content
-        subprocess.Popen(git, shell=True, stdout=None, stderr=None, executable='/bin/bash').wait()
+        subprocess.Popen(git, shell=False, stdout=None, stderr=None, executable='/bin/bash').wait()
         file.seek(0)
         file.truncate()
         file.write(latestver)
@@ -161,7 +161,7 @@ def WSAChecker(user, release_type):
         print("New version found: " + wsa_build_ver)
         new_version_found = True
         # Write appversion content
-        subprocess.Popen(git, shell=True, stdout=None, stderr=None, executable='/bin/bash').wait()
+        subprocess.Popen(git, shell=False, stdout=None, stderr=None, executable='/bin/bash').wait()
         file.seek(0)
         file.truncate()
         file.write(wsa_build_ver)
