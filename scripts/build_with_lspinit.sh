@@ -81,22 +81,6 @@ MAGISK_VER_MAP=(
     "alpha"
 )
 
-# CUSTOM_MODEL_MAP=(
-#    "none"
-#    "sunfish"
-#    "bramble"
-#    "redfin"
-#    "barbet"
-#    "raven"
-#    "oriole"
-#    "bluejay"
-#    "panther"
-#    "cheetah"
-#    "lynx"
-#    "tangorpro"
-#    "felix"
-# )
-
 ROOT_SOL_MAP=(
     "magisk"
     "kernelsu"
@@ -197,7 +181,6 @@ check_list "$RELEASE_TYPE" "Release Type" "${RELEASE_TYPE_MAP[@]}"
 check_list "$MAGISK_BRANCH" "Magisk Branch" "${MAGISK_BRANCH_MAP[@]}"
 check_list "$MAGISK_VER" "Magisk Version" "${MAGISK_VER_MAP[@]}"
 check_list "$ROOT_SOL" "Root Solution" "${ROOT_SOL_MAP[@]}"
-# check_list "$CUSTOM_MODEL" "Custom Model" "${CUSTOM_MODEL_MAP[@]}"
 check_list "$COMPRESS_FORMAT" "Compress Format" "${COMPRESS_FORMAT_MAP[@]}"
 
 # shellcheck disable=SC1091
@@ -257,7 +240,7 @@ update_ksu_zip_name() {
 echo "Generating WSA Download Links"
 python3 generateWSALinks.py "$ARCH" "$RELEASE_TYPE" "$DOWNLOAD_DIR" "$DOWNLOAD_WSA_CONF_NAME" || abort
 
-if [ "$RELEASE_TYPE" == "latest" ]; then
+if [ "$RELEASE_TYPE" = "latest" ]; then
     printf "%s\n" "$(curl -sL https://api.github.com/repos/bubbles-wow/WSA-Archive/releases/latest | jq -r '.assets[] | .browser_download_url')" >> "$DOWNLOAD_DIR/$DOWNLOAD_WSA_CONF_NAME" || abort
     printf "  dir=%s\n" "$DOWNLOAD_DIR" >> "$DOWNLOAD_DIR/$DOWNLOAD_WSA_CONF_NAME" || abort
     printf "  out=wsa-latest.zip\n" >> "$DOWNLOAD_DIR/$DOWNLOAD_WSA_CONF_NAME" || abort
@@ -301,7 +284,7 @@ if [ "$ROOT_SOL" = "kernelsu" ]; then
 fi
 if [ "$HAS_GAPPS" ]; then
     update_gapps_files_name
-    python3 generateGappsLink.py "$ARCH" "$DOWNLOAD_DIR" "$DOWNLOAD_CONF_NAME" "$ANDROID_API" "$GAPPS_IMAGE_NAME" || abort
+    python3 generateAddonsLink.py "$ARCH" "$DOWNLOAD_DIR" "$DOWNLOAD_CONF_NAME" "$ANDROID_API" "$GAPPS_IMAGE_NAME" || abort
 fi
 if [ -f "$DOWNLOAD_DIR/$DOWNLOAD_CONF_NAME" ]; then
     echo "Downloading Artifacts"
@@ -354,13 +337,18 @@ if [ "$HAS_GAPPS" ] || [ "$ROOT_SOL" = "magisk" ]; then
     echo "Integrating Magisk"
     SKIP="#"
     SINGLEABI="#"
+    SKIPINITLD="#"
     if [ -f "$WORK_DIR/magisk/magisk64" ]; then
         "$WORK_DIR/magisk/magiskboot" compress=xz "$WORK_DIR/magisk/magisk64" "$WORK_DIR/magisk/magisk64.xz"
         "$WORK_DIR/magisk/magiskboot" compress=xz "$WORK_DIR/magisk/magisk32" "$WORK_DIR/magisk/magisk32.xz"
-        unset SKIP
+        unset SINGLEABI
     else
         "$WORK_DIR/magisk/magiskboot" compress=xz "$WORK_DIR/magisk/magisk" "$WORK_DIR/magisk/magisk.xz"
-        unset SINGLEABI
+        unset SKIP
+    fi
+    if [ -f "$WORK_DIR/magisk/init-ld" ]; then
+        "$WORK_DIR/magisk/magiskboot" compress=xz "$WORK_DIR/magisk/init-ld" "$WORK_DIR/magisk/init-ld.xz"
+        unset SKIPINITLD
     fi
     "$WORK_DIR/magisk/magiskboot" compress=xz "$MAGISK_PATH" "$WORK_DIR/magisk/stub.xz"
     "$WORK_DIR/magisk/magiskboot" cpio "$WORK_DIR/wsa/$ARCH/Tools/initrd.img" \
@@ -370,9 +358,10 @@ if [ "$HAS_GAPPS" ] || [ "$ROOT_SOL" = "magisk" ]; then
         "add 0750 /magiskinit $WORK_DIR/magisk/magiskinit" \
         "mkdir 0750 overlay.d" \
         "mkdir 0750 overlay.d/sbin" \
-        "$SKIP add 0644 overlay.d/sbin/magisk64.xz $WORK_DIR/magisk/magisk64.xz" \
-        "$SKIP add 0644 overlay.d/sbin/magisk32.xz $WORK_DIR/magisk/magisk32.xz" \
-        "$SINGLEABI add 0644 overlay.d/sbin/magisk.xz $WORK_DIR/magisk/magisk.xz" \
+        "$SINGLEABI add 0644 overlay.d/sbin/magisk64.xz $WORK_DIR/magisk/magisk64.xz" \
+        "$SINGLEABI add 0644 overlay.d/sbin/magisk32.xz $WORK_DIR/magisk/magisk32.xz" \
+        "$SKIP add 0644 overlay.d/sbin/magisk.xz $WORK_DIR/magisk/magisk.xz" \
+        "$SKIPINITLD add 0644 overlay.d/sbin/init-ld.xz $WORK_DIR/magisk/init-ld.xz" \
         "add 0644 overlay.d/sbin/stub.xz $WORK_DIR/magisk/stub.xz" \
         "mkdir 000 .backup" \
         "add 000 overlay.d/init.lsp.magisk.rc init.lsp.magisk.rc" \
@@ -403,7 +392,6 @@ if [ "$HAS_GAPPS" ]; then
     if [ -f "$GAPPS_IMAGE_PATH" ] && [ -f "$GAPPS_RC_PATH" ]; then
         echo "Integrating GApps"
         "$WORK_DIR/magisk/magiskboot" cpio "$WORK_DIR/wsa/$ARCH/Tools/initrd.img" \
-            "add 000 /lspolicy.rule sepolicy.rule" \
             "add 000 overlay.d/gapps.rc $GAPPS_RC_PATH" \
             "add 000 overlay.d/sbin/lsp_gapps.img $GAPPS_IMAGE_PATH" \
             || abort "Unable to patch initrd"
@@ -414,21 +402,47 @@ if [ "$HAS_GAPPS" ]; then
 fi
 
 if [ "$REMOVE_AMAZON" ]; then
+    touch "$WORK_DIR/wsa/$ARCH/apex/.gitkeep"
     rm -f "$WORK_DIR/wsa/$ARCH/apex/"mado*.apex || abort
 fi
 
 echo "Removing signature and add scripts"
-rm -rf "${WORK_DIR:?}"/wsa/"$ARCH"/\[Content_Types\].xml "$WORK_DIR/wsa/$ARCH/AppxBlockMap.xml" "$WORK_DIR/wsa/$ARCH/AppxSignature.p7x" "$WORK_DIR/wsa/$ARCH/AppxMetadata" || abort
-cp "$vclibs_PATH" "$xaml_PATH" "$WORK_DIR/wsa/$ARCH" || abort
-cp "$UWPVCLibs_PATH" "$xaml_PATH" "$WORK_DIR/wsa/$ARCH" || abort
+sudo rm -rf "${WORK_DIR:?}"/wsa/"$ARCH"/\[Content_Types\].xml "$WORK_DIR/wsa/$ARCH/AppxBlockMap.xml" "$WORK_DIR/wsa/$ARCH/AppxSignature.p7x" "$WORK_DIR/wsa/$ARCH/AppxMetadata" || abort
+if [ "$ARCH" = "x64" ]; then
+    sudo rm -rf "$WORK_DIR/wsa/$ARCH/arm64/" || abort
+else
+    sudo rm -rf "$WORK_DIR/wsa/$ARCH/amd64/" || abort
+fi
+mkdir "$WORK_DIR/wsa/$ARCH/uwp"
+cp "$vclibs_PATH" "$xaml_PATH" "$WORK_DIR/wsa/$ARCH/uwp/" || abort
+cp "$UWPVCLibs_PATH" "$xaml_PATH" "$WORK_DIR/wsa/$ARCH/uwp/" || abort
 cp "../xml/priconfig.xml" "$WORK_DIR/wsa/$ARCH/xml/" || abort
-cp "../installer/$ARCH/MakePri.ps1" "$WORK_DIR/wsa/$ARCH" || abort
+if [[ "$ROOT_SOL" = "none" ]] && [[ "$HAS_GAPPS" ]] && [[ "$REMOVE_AMAZON" ]]; then
+    sed -i -e 's@Start-Process\ "wsa://com.topjohnwu.magisk"@@g' "../installer/$ARCH/Install.ps1"
+    sed -i -e 's@Start-Process\ "wsa://com.android.vending"@@g' "../installer/$ARCH/Install.ps1"
+else
+    if [[ "$ROOT_SOL" == "none" ]]; then
+        sed -i -e 's@Start-Process "wsa://com.topjohnwu.magisk"@@g' "../installer/$ARCH/Install.ps1"
+    elif [[ "$ROOT_SOL" = "kernelsu" ]]; then
+        sed -i -e 's@wsa://com.topjohnwu.magisk@https://github.com/YT-Advanced/WSA-Script/blob/HEAD/docs/Guides/KernelSU.md@g' "../installer/$ARCH/Install.ps1"
+    elif [[ "$MAGISK_BRANCH" = "HuskyDG" ]]; then
+        sed -i -e 's@com.topjohnwu.magisk@io.github.huskydg.magisk@g' "../installer/$ARCH/Install.ps1"
+    elif [[ "$MAGISK_BRANCH" = "vvb2060" ]]; then
+        sed -i -e 's@com.topjohnwu.magisk@io.github.vvb2060.magisk@g' "../installer/$ARCH/Install.ps1"
+    fi
+    if [[ -z "$HAS_GAPPS" ]] && [[ -z "$REMOVE_AMAZON" ]]; then
+        sed -i -e 's@com.android.vending@com.amazon.venezia@g' "../installer/$ARCH/Install.ps1"
+    elif [[ -z "$HAS_GAPPS" ]]; then
+        sed -i -e 's@Start-Process\ "wsa://com.android.vending"@@g' "../installer/$ARCH/Install.ps1"
+    fi
+fi
 cp "../installer/$ARCH/Install.ps1" "$WORK_DIR/wsa/$ARCH" || abort
-cp "../installer/Run.bat" "$WORK_DIR/wsa/$ARCH" || abort
-find "$WORK_DIR/wsa/$ARCH" -maxdepth 1 -mindepth 1 -printf "%P\n" >"$WORK_DIR/wsa/$ARCH/filelist.txt" || abort
+find "$WORK_DIR/wsa/$ARCH" -not -path "*/uwp*" -not -path "*/pri*" -not -path "*/xml*" -printf "%P\n" | sed -e 's@/@\\@g' -e '/^$/d' > "$WORK_DIR/wsa/$ARCH/filelist.txt" || abort
 find "$WORK_DIR/wsa/$ARCH/pri" -printf "%P\n" | sed -e 's/^/pri\\/' -e '/^$/d' > "$WORK_DIR/wsa/$ARCH/filelist-pri.txt" || abort
 find "$WORK_DIR/wsa/$ARCH/xml" -printf "%P\n" | sed -e 's/^/xml\\/' -e '/^$/d' >> "$WORK_DIR/wsa/$ARCH/filelist-pri.txt" || abort
-echo -e "done\n"
+cp "../installer/$ARCH/MakePri.ps1" "$WORK_DIR/wsa/$ARCH" || abort
+cp ../installer/Run.bat "$WORK_DIR/wsa/$ARCH" || abort
+echo -e "Remove signature and Add scripts done\n"
 
 if [[ "$ROOT_SOL" = "none" ]]; then
     name1=""

@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           check-latest: true
-          python-version: '3.x'
+          python-version: '3.10'
           cache: 'pip'
           cache-dependency-path: scripts/
 
@@ -62,9 +62,12 @@ jobs:
           fi
 
           mkdir -p download
-          ./scripts/build.sh --arch ${{ inputs.arch }} --release-type $RLS_TYPE --magisk-branch topjohnwu --magisk-ver stable $WITH_GAPPS --root-sol ${{ inputs.root }} --remove-amazon --compress-format zip
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
+
+          if [[ "${{ inputs.root }}" == *magisk* ]]; then
+              ./scripts/build_with_lspinit.sh --arch ${{ inputs.arch }} --release-type $RLS_TYPE --magisk-branch topjohnwu --magisk-ver stable $WITH_GAPPS --root-sol ${{ inputs.root }} --remove-amazon --compress-format 7z
+          else
+              ./scripts/build_with_mount.sh --arch ${{ inputs.arch }} --release-type $RLS_TYPE --magisk-branch topjohnwu --magisk-ver stable $WITH_GAPPS --root-sol ${{ inputs.root }} --remove-amazon --compress-format 7z
+          fi
   
       - name: Pass to Windows 💸
         uses: actions/upload-artifact@v4
@@ -131,7 +134,7 @@ jobs:
         run: ("hash=" + $(Get-FileHash -Path "${{ needs.build.outputs.zipname }}.7z" -Algorithm SHA256).Hash.ToLower().ToString()) | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding UTF8 -Append
 
       - name: Update build to release 🤌
-        uses: softprops/action-gh-release@v2.0.4
+        uses: softprops/action-gh-release@v2.0.8
         with:
           files: ${{ needs.build.outputs.zipname }}.7z
           fail_on_unmatched_files: true
